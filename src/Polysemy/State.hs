@@ -28,6 +28,7 @@ module Polysemy.State
   , hoistStateIntoStateT
   ) where
 
+import Type.Reflection
 import           Control.Monad.ST
 import qualified Control.Monad.Trans.State as S
 import           Data.IORef
@@ -48,18 +49,18 @@ import           Polysemy.Internal.Union
 -- Interpreters which require statefulness can 'Polysemy.reinterpret'
 -- themselves in terms of 'State', and subsequently call 'runState'.
 data State s m a where
-  Get :: State s m s
-  Put :: s -> State s m ()
+  Get ::Typeable s => State s m s
+  Put ::Typeable s => s -> State s m ()
 
 makeSem ''State
 
 
-gets :: forall s a r. Member (State s) r => (s -> a) -> Sem r a
+gets :: forall s a r. Typeable s =>Member (State s) r => (s -> a) -> Sem r a
 gets f = f <$> get
 {-# INLINABLE gets #-}
 
 
-modify :: Member (State s) r => (s -> s) -> Sem r ()
+modify ::Typeable s => Member (State s) r => (s -> s) -> Sem r ()
 modify f = do
   s <- get
   put $ f s
@@ -68,7 +69,7 @@ modify f = do
 ------------------------------------------------------------------------------
 -- | A variant of 'modify' in which the computation is strict in the
 -- new state.
-modify' :: Member (State s) r => (s -> s) -> Sem r ()
+modify' ::Typeable s => Member (State s) r => (s -> s) -> Sem r ()
 modify' f = do
   s <- get
   put $! f s
@@ -77,7 +78,7 @@ modify' f = do
 
 ------------------------------------------------------------------------------
 -- | Run a 'State' effect with local state.
-runState :: s -> Sem (State s ': r) a -> Sem r (s, a)
+runState ::Typeable s => Typeable s => s -> Sem (State s ': r) a -> Sem r (s, a)
 runState = stateful $ \case
   Get   -> \s -> pure (s, s)
   Put s -> const $ pure (s, ())
@@ -88,7 +89,7 @@ runState = stateful $ \case
 -- | Run a 'State' effect with local state.
 --
 -- @since 1.0.0.0
-evalState :: s -> Sem (State s ': r) a -> Sem r a
+evalState ::Typeable s => s -> Sem (State s ': r) a -> Sem r a
 evalState s = fmap snd . runState s
 {-# INLINE evalState #-}
 
@@ -96,7 +97,7 @@ evalState s = fmap snd . runState s
 -- | Run a 'State' effect with local state.
 --
 -- @since 1.2.3.1
-execState :: s -> Sem (State s ': r) a -> Sem r s
+execState ::Typeable s => s -> Sem (State s ': r) a -> Sem r s
 execState s = fmap fst . runState s
 {-# INLINE execState #-}
 
@@ -104,7 +105,7 @@ execState s = fmap fst . runState s
 
 ------------------------------------------------------------------------------
 -- | Run a 'State' effect with local state, lazily.
-runLazyState :: s -> Sem (State s ': r) a -> Sem r (s, a)
+runLazyState ::Typeable s => Typeable s => s -> Sem (State s ': r) a -> Sem r (s, a)
 runLazyState = lazilyStateful $ \case
   Get   -> \s -> pure (s, s)
   Put s -> const $ pure (s, ())
@@ -114,7 +115,7 @@ runLazyState = lazilyStateful $ \case
 -- | Run a 'State' effect with local state, lazily.
 --
 -- @since 1.0.0.0
-evalLazyState :: s -> Sem (State s ': r) a -> Sem r a
+evalLazyState ::Typeable s => s -> Sem (State s ': r) a -> Sem r a
 evalLazyState s = fmap snd . runLazyState s
 {-# INLINE evalLazyState #-}
 
@@ -123,7 +124,7 @@ evalLazyState s = fmap snd . runLazyState s
 -- | Run a 'State' effect with local state, lazily.
 --
 -- @since 1.2.3.1
-execLazyState :: s -> Sem (State s ': r) a -> Sem r s
+execLazyState ::Typeable s => s -> Sem (State s ': r) a -> Sem r s
 execLazyState s = fmap fst . runLazyState s
 {-# INLINE execLazyState #-}
 
@@ -141,6 +142,7 @@ execLazyState s = fmap fst . runLazyState s
 runStateIORef
     :: forall s r a
      . Member (Embed IO) r
+     => Typeable s
     => IORef s
     -> Sem (State s ': r) a
     -> Sem r a
@@ -172,7 +174,7 @@ runStateIORef ref = interpret $ \case
 -- @since 1.2.0.0
 stateToIO
     :: forall s r a
-     . Member (Embed IO) r
+     . Typeable s => Member (Embed IO) r
     => s
     -> Sem (State s ': r) a
     -> Sem r (s, a)
@@ -189,7 +191,7 @@ stateToIO s sem = do
 -- @since 1.3.0.0
 runStateSTRef
     :: forall s st r a
-     . Member (Embed (ST st)) r
+     . Typeable s => Member (Embed (ST st)) r
     => STRef st s
     -> Sem (State s ': r) a
     -> Sem r a
@@ -220,14 +222,14 @@ runStateSTRef ref = interpret $ \case
 -- @-XScopedTypeVariables@.
 --
 -- @
--- stResult :: forall s a. (s, a)
--- stResult = runST ( (runM $ stateToST \@_ \@st undefined $ pure undefined) :: forall st. ST st (s, a) )
+-- stResult ::Typeable s => forall s a. (s, a)
+-- stResult = runST ( (runM $ stateToST \@_ \@st undefined $ pure undefined) ::Typeable s => forall st. ST st (s, a) )
 -- @
 --
 -- @since 1.3.0.0
 stateToST
-    :: forall s st r a
-     . Member (Embed (ST st)) r
+    ::forall s st r a
+     . Typeable s => Member (Embed (ST st)) r
     => s
     -> Sem (State s ': r) a
     -> Sem r (s, a)
@@ -244,7 +246,7 @@ stateToST s sem = do
 --
 -- @since 0.1.3.0
 hoistStateIntoStateT
-    :: Sem (State s ': r) a
+    ::Typeable s => Typeable s => Sem (State s ': r) a
     -> S.StateT s (Sem r) a
 hoistStateIntoStateT (Sem m) = m $ \u ->
   case decomp u of
@@ -258,13 +260,3 @@ hoistStateIntoStateT (Sem m) = m $ \u ->
     Right (Weaving (Put s) z _ y _) -> y . (<$ z) <$> S.put s
 {-# INLINE hoistStateIntoStateT #-}
 
-
-{-# RULES "runState/reinterpret"
-   forall s e (f :: forall m x. e m x -> Sem (State s ': r) x).
-     runState s (reinterpret f e) = stateful (\x s' -> runState s' $ f x) s e
-     #-}
-
-{-# RULES "runLazyState/reinterpret"
-   forall s e (f :: forall m x. e m x -> Sem (State s ': r) x).
-     runLazyState s (reinterpret f e) = lazilyStateful (\x s' -> runLazyState s' $ f x) s e
-     #-}

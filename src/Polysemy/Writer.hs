@@ -24,6 +24,7 @@ module Polysemy.Writer
   , outputToWriter
   ) where
 
+import Type.Reflection
 import Control.Concurrent.STM
 import qualified Control.Monad.Trans.Writer.Lazy as Lazy
 
@@ -64,6 +65,7 @@ outputToWriter = interpret $ \case
 -- (but without the nasty space leak!)
 runWriter
     :: Monoid o
+    => Typeable o
     => Sem (Writer o ': r) a
     -> Sem r (o, a)
 runWriter = runState mempty . reinterpretH
@@ -98,6 +100,7 @@ runWriter = runState mempty . reinterpretH
 runLazyWriter
     :: forall o r a
      . Monoid o
+    => Typeable o
     => Sem (Writer o ': r) a
     -> Sem r (o, a)
 runLazyWriter = interpretViaLazyWriter $ \(Weaving e s wv ex ins) ->
@@ -127,6 +130,7 @@ runLazyWriter = interpretViaLazyWriter $ \(Weaving e s wv ex ins) ->
 -- @since 1.1.0.0
 runWriterAssocR
     :: Monoid o
+    => Typeable o
     => Sem (Writer o ': r) a
     -> Sem r (o, a)
 runWriterAssocR =
@@ -152,6 +156,7 @@ runWriterAssocR =
 -- @since 1.3.0.0
 runLazyWriterAssocR
     :: Monoid o
+    => Typeable o
     => Sem (Writer o ': r) a
     -> Sem r (o, a)
 runLazyWriterAssocR =

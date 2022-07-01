@@ -25,6 +25,7 @@ module Polysemy.Error
   , errorToIOFinal
   ) where
 
+import Type.Reflection
 import qualified Control.Exception          as X
 import           Control.Monad
 import qualified Control.Monad.Trans.Except as E
@@ -193,7 +194,7 @@ catchJust ef m bf = catch m handler
 -- | Run an 'Error' effect in the style of
 -- 'Control.Monad.Trans.Except.ExceptT'.
 runError
-    :: Sem (Error e ': r) a
+    :: Typeable e =>Sem (Error e ': r) a
     -> Sem r (Either e a)
 runError (Sem m) = Sem $ \k -> E.runExceptT $ m $ \u ->
   case decomp u of
@@ -223,6 +224,7 @@ runError (Sem m) = Sem $ \k -> E.runExceptT $ m $ \u ->
 mapError
   :: forall e1 e2 r a
    . Member (Error e2) r
+   => Typeable e1
   => (e1 -> e2)
   -> Sem (Error e1 ': r) a
   -> Sem r a

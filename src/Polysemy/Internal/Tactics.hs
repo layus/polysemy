@@ -18,6 +18,7 @@ module Polysemy.Internal.Tactics
   , WithTactics
   ) where
 
+import Type.Reflection
 import Polysemy.Internal
 import Polysemy.Internal.Union
 
@@ -73,23 +74,23 @@ import Polysemy.Internal.Union
 --
 -- Power users may explicitly use 'getInitialStateT' and 'bindT' to construct
 -- whatever data flow they'd like; although this is usually unnecessary.
-type Tactical e m r x = ∀ f. Functor f
+type Tactical e m r x = ∀ f. (Functor f, Typeable f)
                           => Sem (WithTactics e f m r) (f x)
 
 type WithTactics e f m r = Tactics f m (e ': r) ': r
 
 data Tactics f n r m a where
-  GetInitialState      :: Tactics f n r m (f ())
-  HoistInterpretation  :: (a -> n b) -> Tactics f n r m (f a -> Sem r (f b))
-  HoistInterpretationH :: (a -> n b) -> f a -> Tactics f n r m (f b)
-  GetInspector         :: Tactics f n r m (Inspector f)
+  GetInitialState      :: (Typeable f) => Tactics f n r m (f ())
+  HoistInterpretation  :: (Typeable f) => (a -> n b) -> Tactics f n r m (f a -> Sem r (f b))
+  HoistInterpretationH :: (Typeable f) => (a -> n b) -> f a -> Tactics f n r m (f b)
+  GetInspector         :: (Typeable f) => Tactics f n r m (Inspector f)
 
 
 ------------------------------------------------------------------------------
 -- | Get the stateful environment of the world at the moment the effect @e@ is
 -- to be run. Prefer 'pureT', 'runT' or 'bindT' instead of using this function
 -- directly.
-getInitialStateT :: forall f m r e. Sem (WithTactics e f m r) (f ())
+getInitialStateT :: forall f m r e. Typeable f => Sem (WithTactics e f m r) (f ())
 getInitialStateT = send @(Tactics _ m (e ': r)) GetInitialState
 
 
@@ -113,7 +114,7 @@ getInitialStateT = send @(Tactics _ m (e ': r)) GetInitialState
 -- let a = 'inspect' ins fa   -- Just "hello"
 --     b = 'inspect' ins fb   -- Just True
 -- @
-getInspectorT :: forall e f m r. Sem (WithTactics e f m r) (Inspector f)
+getInspectorT :: forall e f m r. Typeable f => Sem (WithTactics e f m r) (Inspector f)
 getInspectorT = send @(Tactics _ m (e ': r)) GetInspector
 
 
@@ -127,7 +128,7 @@ newtype Inspector f = Inspector
 
 ------------------------------------------------------------------------------
 -- | Lift a value into 'Tactical'.
-pureT :: Functor f => a -> Sem (WithTactics e f m r) (f a)
+pureT :: Functor f => Typeable f => a -> Sem (WithTactics e f m r) (f a)
 pureT a = do
   istate <- getInitialStateT
   pure $ a <$ istate
@@ -137,8 +138,9 @@ pureT a = do
 -- | Run a monadic action in a 'Tactical' environment. The stateful environment
 -- used will be the same one that the effect is initally run in. Use 'bindT' if
 -- you'd prefer to explicitly manage your stateful environment.
-runT
-    :: m a
+runT ::
+    (Typeable f) =>
+    m a
       -- ^ The monadic action to lift. This is usually a parameter in your
       -- effect.
     -> Sem (WithTactics e f m r)
@@ -175,7 +177,7 @@ runTSimple na = do
 -- 'bindT' to get an effect parameter of the form @a -> m b@ into something
 -- that can be used after calling 'runT' on an effect parameter @m a@.
 bindT
-    :: (a -> m b)
+    :: Typeable f => (a -> m b)
        -- ^ The monadic continuation to lift. This is usually a parameter in
        -- your effect.
        --
@@ -199,7 +201,7 @@ bindT f = send $ HoistInterpretation f
 -- @since 1.5.0.0
 bindTSimple
     :: forall m f r e a b
-     . (a -> m b)
+     . Typeable f => (a -> m b)
        -- ^ The monadic continuation to lift. This is usually a parameter in
        -- your effect.
        --
@@ -217,6 +219,7 @@ bindTSimple f s = send @(Tactics _ _ (e ': r)) $ HoistInterpretationH f s
 liftT
     :: forall m f r e a
      . Functor f
+    => Typeable f
     => Sem r a
     -> Sem (WithTactics e f m r) (f a)
 liftT m = do
@@ -229,6 +232,7 @@ liftT m = do
 -- | Run the 'Tactics' effect.
 runTactics
    :: Functor f
+   => Typeable f
    => f ()
    -> (∀ x. f (m x) -> Sem r2 (f x))
    -> (∀ x. f x -> Maybe x)

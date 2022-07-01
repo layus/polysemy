@@ -24,6 +24,7 @@ module Polysemy.AtomicState
   ) where
 
 
+import Type.Reflection
 import Control.Concurrent.STM
 
 import Polysemy
@@ -44,18 +45,18 @@ makeSem_ ''AtomicState
 -----------------------------------------------------------------------------
 -- | Atomically reads and modifies the state.
 atomicState :: forall s a r
-             . Member (AtomicState s) r
+             . Typeable s => Member (AtomicState s) r
             => (s -> (s, a))
             -> Sem r a
 
 atomicGet :: forall s r
-           . Member (AtomicState s) r
+           . Typeable s => Member (AtomicState s) r
           => Sem r s
 
 ------------------------------------------------------------------------------
 -- | @since 1.2.2.0
 atomicGets :: forall s s' r
-            . Member (AtomicState s) r
+            . Typeable s => Member (AtomicState s) r
            => (s -> s')
            -> Sem r s'
 atomicGets = (<$> atomicGet)
@@ -65,7 +66,7 @@ atomicGets = (<$> atomicGet)
 -- | A variant of 'atomicState' in which the computation is strict in the new
 -- state and return value.
 atomicState' :: forall s a r
-              . Member (AtomicState s) r
+              . Typeable s => Member (AtomicState s) r
              => (s -> (s, a))
              -> Sem r a
 atomicState' f = do
@@ -78,7 +79,7 @@ atomicState' f = do
   return a
 {-# INLINE atomicState' #-}
 
-atomicPut :: Member (AtomicState s) r
+atomicPut :: Typeable s => Member (AtomicState s) r
           => s
           -> Sem r ()
 atomicPut s = do
@@ -86,7 +87,7 @@ atomicPut s = do
   return ()
 {-# INLINE atomicPut #-}
 
-atomicModify :: Member (AtomicState s) r
+atomicModify :: Typeable s => Member (AtomicState s) r
              => (s -> s)
              -> Sem r ()
 atomicModify f = atomicState $ \s -> (f s, ())
@@ -95,7 +96,7 @@ atomicModify f = atomicState $ \s -> (f s, ())
 -----------------------------------------------------------------------------
 -- | A variant of 'atomicModify' in which the computation is strict in the
 -- new state.
-atomicModify' :: Member (AtomicState s) r
+atomicModify' :: Typeable s => Member (AtomicState s) r
               => (s -> s)
               -> Sem r ()
 atomicModify' f = do
@@ -107,7 +108,7 @@ atomicModify' f = do
 -- | Run an 'AtomicState' effect by transforming it into atomic operations
 -- over an 'IORef'.
 runAtomicStateIORef :: forall s r a
-                     . Member (Embed IO) r
+                     . Typeable s => Member (Embed IO) r
                     => IORef s
                     -> Sem (AtomicState s ': r) a
                     -> Sem r a
@@ -149,7 +150,7 @@ runAtomicStateTVar tvar = interpret $ \case
 --
 -- @since 1.2.0.0
 atomicStateToIO :: forall s r a
-                 . Member (Embed IO) r
+                 . Typeable s => Member (Embed IO) r
                 => s
                 -> Sem (AtomicState s ': r) a
                 -> Sem r (s, a)
@@ -163,7 +164,7 @@ atomicStateToIO s sem = do
 ------------------------------------------------------------------------------
 -- | Transform an 'AtomicState' effect to a 'State' effect, discarding
 -- the notion of atomicity.
-atomicStateToState :: Member (State s) r
+atomicStateToState :: Typeable s => Member (State s) r
                    => Sem (AtomicState s ': r) a
                    -> Sem r a
 atomicStateToState = interpret $ \case
@@ -181,7 +182,7 @@ atomicStateToState = interpret $ \case
 --
 --
 -- @since v1.7.0.0
-runAtomicStateViaState :: s
+runAtomicStateViaState :: Typeable s => s
                        -> Sem (AtomicState s ': r) a
                        -> Sem r (s, a)
 runAtomicStateViaState s =
@@ -194,7 +195,7 @@ runAtomicStateViaState s =
 -- with the provided initial state.
 --
 -- @since v1.7.0.0
-evalAtomicStateViaState :: s
+evalAtomicStateViaState :: Typeable s => s
                         -> Sem (AtomicState s ': r) a
                         -> Sem r a
 evalAtomicStateViaState s =
@@ -207,7 +208,7 @@ evalAtomicStateViaState s =
 -- with the provided initial state.
 --
 -- @since v1.7.0.0
-execAtomicStateViaState :: s
+execAtomicStateViaState :: Typeable s => s
                         -> Sem (AtomicState s ': r) a
                         -> Sem r s
 execAtomicStateViaState s =

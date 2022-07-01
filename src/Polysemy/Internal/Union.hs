@@ -51,6 +51,7 @@ import Control.Monad
 import Data.Functor.Compose
 import Data.Functor.Identity
 import Data.Kind
+import Type.Reflection
 import Data.Typeable
 import Polysemy.Internal.Kind
 import {-# SOURCE #-} Polysemy.Internal
@@ -77,7 +78,7 @@ instance Functor (Union r mWoven) where
 
 data Weaving e mAfter resultType where
   Weaving
-    :: forall f e rInitial a resultType mAfter. (Functor f)
+    :: forall f e rInitial a resultType mAfter. (Functor f, Typeable f)
     => {
       weaveEffect :: e (Sem rInitial) a
       -- ^ The original effect GADT originally lifted via
@@ -109,7 +110,7 @@ instance Functor (Weaving e m) where
 
 
 weave
-    :: (Functor s, Functor n)
+    :: (Functor s, Functor n, Typeable s)
     => s ()
     -> (∀ x. s (m x) -> n (s x))
     -> (∀ x. s x -> Maybe x)

@@ -23,6 +23,7 @@ module Polysemy.Output
   , runOutputSem
   ) where
 
+import Type.Reflection
 import Data.IORef
 import Control.Concurrent.STM
 import qualified Control.Monad.Trans.Writer.Lazy as Lazy
@@ -52,7 +53,7 @@ makeSem ''Output
 -- @since 1.0.0.0
 runOutputList
     :: forall o r a
-     . Sem (Output o ': r) a
+     . Typeable o => Sem (Output o ': r) a
     -> Sem r ([o], a)
 runOutputList = fmap (first reverse) . runState [] . reinterpret
   (\case
@@ -71,7 +72,7 @@ runOutputList = fmap (first reverse) . runState [] . reinterpret
 -- @since 1.3.0.0
 runLazyOutputList
     :: forall o r a
-     . Sem (Output o ': r) a
+     . Typeable o => Sem (Output o ': r) a
     -> Sem r ([o], a)
 runLazyOutputList = runLazyOutputMonoidAssocR pure
 {-# INLINE runLazyOutputList #-}
@@ -83,6 +84,8 @@ runLazyOutputList = runLazyOutputMonoidAssocR pure
 runOutputMonoid
     :: forall o m r a
      . Monoid m
+    => Typeable o
+    => Typeable m
     => (o -> m)
     -> Sem (Output o ': r) a
     -> Sem r (m, a)
@@ -103,7 +106,7 @@ runOutputMonoid f = runState mempty . reinterpret
 -- @since 1.3.0.0
 runLazyOutputMonoid
     :: forall o m r a
-     . Monoid m
+     . Typeable o => Typeable m => Typeable m => Monoid m
     => (o -> m)
     -> Sem (Output o ': r) a
     -> Sem r (m, a)
@@ -123,7 +126,7 @@ runLazyOutputMonoid f = interpretViaLazyWriter $ \(Weaving e s _ ex _) ->
 -- @since 1.1.0.0
 runOutputMonoidAssocR
     :: forall o m r a
-     . Monoid m
+     . Typeable o => Typeable m => Monoid m
     => (o -> m)
     -> Sem (Output o ': r) a
     -> Sem r (m, a)
@@ -147,7 +150,7 @@ runOutputMonoidAssocR f =
 -- @since 1.3.0.0
 runLazyOutputMonoidAssocR
     :: forall o m r a
-     . Monoid m
+     . Typeable o => Typeable m => Monoid m
     => (o -> m)
     -> Sem (Output o ': r) a
     -> Sem r (m, a)
@@ -164,7 +167,7 @@ runLazyOutputMonoidAssocR f =
 -- @since 1.1.0.0
 runOutputMonoidIORef
     :: forall o m r a
-     . (Monoid m, Member (Embed IO) r)
+     . Typeable o => Typeable m => (Monoid m, Member (Embed IO) r)
     => IORef m
     -> (o -> m)
     -> Sem (Output o ': r) a
@@ -180,7 +183,7 @@ runOutputMonoidIORef ref f = interpret $ \case
 -- @since 1.1.0.0
 runOutputMonoidTVar
     :: forall o m r a
-     . (Monoid m, Member (Embed IO) r)
+     . Typeable o => Typeable m => (Monoid m, Member (Embed IO) r)
     => TVar m
     -> (o -> m)
     -> Sem (Output o ': r) a
@@ -211,7 +214,7 @@ runOutputMonoidTVar tvar f = interpret $ \case
 -- @since 1.2.0.0
 outputToIOMonoid
   :: forall o m r a
-   . (Monoid m, Member (Embed IO) r)
+   . Typeable o => Typeable m => (Monoid m, Member (Embed IO) r)
   => (o -> m)
   -> Sem (Output o ': r) a
   -> Sem r (m, a)
@@ -241,7 +244,7 @@ outputToIOMonoid f sem = do
 -- @since 1.2.0.0
 outputToIOMonoidAssocR
   :: forall o m r a
-   . (Monoid m, Member (Embed IO) r)
+   . Typeable o => Typeable m => (Monoid m, Member (Embed IO) r)
   => (o -> m)
   -> Sem (Output o ': r) a
   -> Sem r (m, a)
@@ -253,7 +256,7 @@ outputToIOMonoidAssocR f =
 -- | Run an 'Output' effect by ignoring it.
 --
 -- @since 1.0.0.0
-ignoreOutput :: Sem (Output o ': r) a -> Sem r a
+ignoreOutput :: Typeable o => Sem (Output o ': r) a -> Sem r a
 ignoreOutput = interpret $ \case
   Output _ -> pure ()
 {-# INLINE ignoreOutput #-}
@@ -269,7 +272,7 @@ ignoreOutput = interpret $ \case
 -- @since 1.0.0.0
 runOutputBatched
     :: forall o r a
-     . Member (Output [o]) r
+     . Typeable o => Member (Output [o]) r
     => Int
     -> Sem (Output o ': r) a
     -> Sem r a
@@ -293,7 +296,7 @@ runOutputBatched size m = do
 ------------------------------------------------------------------------------
 -- | Runs an 'Output' effect by running a monadic action for each of its
 -- values.
-runOutputSem :: (o -> Sem r ()) -> Sem (Output o ': r) a -> Sem r a
+runOutputSem :: Typeable o => (o -> Sem r ()) -> Sem (Output o ': r) a -> Sem r a
 runOutputSem act = interpret $ \case
     Output o -> act o
 {-# INLINE runOutputSem #-}

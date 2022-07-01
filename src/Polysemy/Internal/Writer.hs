@@ -2,6 +2,7 @@
 {-# OPTIONS_HADDOCK not-home #-}
 module Polysemy.Internal.Writer where
 
+import Type.Reflection
 import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad
@@ -198,6 +199,7 @@ runWriterSTMAction write = interpretH $ \case
 interpretViaLazyWriter
   :: forall o e r a
    . Monoid o
+  => Typeable o
   => (forall m x. Monad m => Weaving e (Lazy.WriterT o m) x -> Lazy.WriterT o m x)
   -> Sem (e ': r) a
   -> Sem r (o, a)

@@ -28,6 +28,7 @@ module Polysemy.Internal.Combinators
   , lazilyStateful
   ) where
 
+import Type.Reflection (Typeable)
 import           Control.Monad
 import qualified Control.Monad.Trans.State.Lazy as LS
 import qualified Control.Monad.Trans.State.Strict as S
@@ -90,11 +91,10 @@ interpretH f (Sem m) = Sem $ \k -> m $ \u ->
 ------------------------------------------------------------------------------
 -- | A highly-performant combinator for interpreting an effect statefully. See
 -- 'stateful' for a more user-friendly variety of this function.
-interpretInStateT
-    :: (∀ x m. e m x -> S.StateT s (Sem r) x)
-    -> s
-    -> Sem (e ': r) a
-    -> Sem r (s, a)
+interpretInStateT ::
+  Typeable s =>
+  (∀ x m. e m x -> S.StateT s (Sem r) x) ->
+  s -> Sem (e ': r) a -> Sem r (s, a)
 interpretInStateT f s (Sem m) = Sem $ \k ->
   (S.swap <$!>) $ flip S.runStateT s $ m $ \u ->
     case decomp u of
@@ -114,7 +114,7 @@ interpretInStateT f s (Sem m) = Sem $ \k ->
 -- | A highly-performant combinator for interpreting an effect statefully. See
 -- 'stateful' for a more user-friendly variety of this function.
 interpretInLazyStateT
-    :: (∀ x m. e m x -> LS.StateT s (Sem r) x)
+    ::  Typeable s => (∀ x m. e m x -> LS.StateT s (Sem r) x)
     -> s
     -> Sem (e ': r) a
     -> Sem r (s, a)
@@ -135,7 +135,7 @@ interpretInLazyStateT f s (Sem m) = Sem $ \k ->
 ------------------------------------------------------------------------------
 -- | Like 'interpret', but with access to an intermediate state @s@.
 stateful
-    :: (∀ x m. e m x -> s -> Sem r (s, x))
+    :: Typeable s => (∀ x m. e m x -> s -> Sem r (s, x))
     -> s
     -> Sem (e ': r) a
     -> Sem r (s, a)
@@ -146,7 +146,7 @@ stateful f = interpretInStateT $ \e -> S.StateT $ (S.swap <$!>) . f e
 ------------------------------------------------------------------------------
 -- | Like 'interpret', but with access to an intermediate state @s@.
 lazilyStateful
-    :: (∀ x m. e m x -> s -> Sem r (s, x))
+    :: Typeable s => (∀ x m. e m x -> s -> Sem r (s, x))
     -> s
     -> Sem (e ': r) a
     -> Sem r (s, a)
